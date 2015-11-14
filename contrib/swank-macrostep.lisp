@@ -92,7 +92,12 @@
      :macro)
     ((and compiler-macros?
           (compiler-macro-function (car form) env))
-     :compiler-macro)
+     (multiple-value-bind (expansion expanded?)
+         (compiler-macroexpand-1 form)
+       (declare (ignore expansion))
+       (if expanded?
+           :compiler-macro
+         nil)))
     (t
      nil)))
 
