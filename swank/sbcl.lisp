@@ -1079,14 +1079,19 @@ Return a list of the form (NAME LOCATION)."
 
 (defimplementation collect-macro-forms (form &optional environment)
   (let ((macro-forms '())
-        (compiler-macro-forms '()))
+        (compiler-macro-forms '())
+        (function-quoted-forms '()))
     (sb-walker:walk-form
      form environment
      (lambda (form context environment)
        (declare (ignore context))
        (when (and (consp form)
                   (symbolp (car form)))
-         (cond ((macro-function (car form) environment)
+         (cond ((eq (car form) 'function)
+                (push (cadr form) function-quoted-forms))
+               ((member form function-quoted-forms)
+                nil)
+               ((macro-function (car form) environment)
                 (push form macro-forms))
                ((and
                  (compiler-macro-function (car form) environment)
