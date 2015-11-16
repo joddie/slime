@@ -1093,10 +1093,7 @@ Return a list of the form (NAME LOCATION)."
                 nil)
                ((macro-function (car form) environment)
                 (push form macro-forms))
-               ((and
-                 (compiler-macro-function (car form) environment)
-                 (not (eq form
-                          (compiler-macroexpand-1 form environment))))
+               ((not (eq form (compiler-macroexpand-1 form environment)))
                 (push form compiler-macro-forms))))
        form))
     (values macro-forms compiler-macro-forms)))
