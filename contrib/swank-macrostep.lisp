@@ -52,13 +52,17 @@
 		      (loop for form in all-macros
 			    for (start end) in positions
 			    when (and start end)
-			      collect (let ((op-name (to-string (first form))))
-					(list op-name
-					      (if (member form macros)
+			      collect (let ((op-name (to-string (first form)))
+                                            (op-type
+                                             (if (member form macros)
 						  :macro
-						  :compiler-macro)
+						  :compiler-macro))
+                                            (line-number
+                                             (position-line start pretty-expansion)))
+					(list op-name
+					      op-type
 					      start
-					      (position-line start pretty-expansion)
+					      line-number
 					      (length op-name))))
 		      nil))))))))
 
