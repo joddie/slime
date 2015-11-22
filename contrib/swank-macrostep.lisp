@@ -84,8 +84,15 @@
 (defslimefun macro-form-p
     (string &optional compiler-macros?)
   (with-buffer-syntax ()
-    (let ((form (read-from-string string)))
-      (macro-form-type form nil compiler-macros?))))
+    (let ((form
+           (handler-bind
+               ((error
+                 (lambda (condition)
+                   (unless (debug-on-swank-error)
+                     (return-from macro-form-p
+                       (values nil (prin1-to-string condition)))))))
+             (read-from-string string))))
+      (values (macro-form-type form nil compiler-macros?) nil))))
 
 (defun macro-form-type (form env compiler-macros?)
   (cond
