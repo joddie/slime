@@ -77,15 +77,15 @@
   (dolist (position positions)
     (cl-destructuring-bind (operator type start)
         position
-      (let ((opening-parenthesis-position
+      (let ((open-paren-position
               (+ start-offset start)))
-        (put-text-property opening-parenthesis-position
-                           (1+ opening-parenthesis-position)
+        (put-text-property open-paren-position
+                           (1+ open-paren-position)
                            'macrostep-macro-start
                            t)
         ;; this assumes that the operator starts right next to the
         ;; opening parenthesis. We could probably be more robust.
-        (let ((op-start (1+ opening-parenthesis-position)))
+        (let ((op-start (1+ open-paren-position)))
           (put-text-property op-start
                              (+ op-start (length operator))
                              'font-lock-face

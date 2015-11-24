@@ -35,7 +35,7 @@
 		     (positions (collect-form-positions expansion
 							pretty-expansion
 							all-macros))
-                     (macro-operators
+                     (subform-info
                       (loop
                          for form in all-macros
                          for (start end) in positions
@@ -48,7 +48,7 @@
                                    (list op-name
                                          op-type
                                          start)))))
-		`(:ok ,pretty-expansion ,macro-operators))))))))
+		`(:ok ,pretty-expansion ,subform-info))))))))
 
 (defun expand-form-once (form compiler-macros?)
   (multiple-value-bind (expansion expanded?)
