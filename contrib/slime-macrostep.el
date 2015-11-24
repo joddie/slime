@@ -54,13 +54,14 @@
   (setq macrostep-macro-form-p-function #'macrostep-slime-macro-form-p))
 
 (defun macrostep-slime-expand-1 (string _ignore)
-  (cl-destructuring-bind (expansion positions error-message)
+  (slime-dcase
       (slime-eval
        `(swank-macrostep:macrostep-expand-1
          ,string ,macrostep-expand-compiler-macros))
-    (if error-message
-        (error "%s" error-message)
-      (list expansion positions))))
+    ((:error error-message)
+     (error "%s" error-message))
+    ((:ok expansion positions)
+     (list expansion positions))))
 
 (defun macrostep-slime-insert (result _ignore)
   "Insert RESULT at point, indenting to match the current column."
@@ -94,10 +95,14 @@
                                  'macrostep-compiler-macro-face)))))))
 
 (defun macrostep-slime-macro-form-p (string _ignore)
-  (when string
-    (slime-eval
-     `(swank-macrostep:macro-form-p
-       ,string ,macrostep-expand-compiler-macros))))
+  (slime-dcase
+      (slime-eval
+       `(swank-macrostep:macro-form-p
+         ,string ,macrostep-expand-compiler-macros))
+    ((:error error-message)
+     (error "%s" error-message))
+    ((:ok result)
+     result)))
 
 
 

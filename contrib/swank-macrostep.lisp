@@ -27,7 +27,7 @@
       (multiple-value-bind (expansion error-message)
 	  (expand-form-once form compiler-macros?)
 	(if error-message
-	    (list nil nil error-message)
+            `(:error ,error-message)
 	    (multiple-value-bind (macros compiler-macros)
 		(collect-macro-forms expansion)
 	      (let* ((all-macros (append macros compiler-macros))
@@ -35,23 +35,23 @@
 		     (positions (collect-form-positions expansion
 							pretty-expansion
 							all-macros)))
-		(list pretty-expansion
-		      (loop for form in all-macros
-			    for (start end) in positions
-			    when (and start end)
-			      collect (let ((op-name (to-string (first form)))
-                                            (op-type
-                                             (if (member form macros)
-						  :macro
-						  :compiler-macro))
-                                            (line-number
-                                             (position-line start pretty-expansion)))
-					(list op-name
-					      op-type
-					      start
-					      line-number
-					      (length op-name))))
-		      nil))))))))
+		`(:ok
+                  ,pretty-expansion
+                  ,(loop for form in all-macros
+                      for (start end) in positions
+                      when (and start end)
+                      collect (let ((op-name (to-string (first form)))
+                                    (op-type
+                                     (if (member form macros)
+                                         :macro
+                                       :compiler-macro))
+                                    (line-number
+                                     (position-line start pretty-expansion)))
+                                (list op-name
+                                      op-type
+                                      start
+                                      line-number
+                                      (length op-name))))))))))))
 
 (defun expand-form-once (form compiler-macros?)
   (multiple-value-bind (expansion expanded?)
@@ -83,14 +83,13 @@
     (string &optional compiler-macros?)
   (with-buffer-syntax ()
     (let ((form
-           (handler-bind
-               ((error
-                 (lambda (condition)
-                   (unless (debug-on-swank-error)
-                     (return-from macro-form-p
-                       (values nil (prin1-to-string condition)))))))
-             (read-from-string string))))
-      (values (macro-form-type form nil compiler-macros?) nil))))
+           (handler-case
+               (read-from-string string)
+             (error (condition)
+               (unless (debug-on-swank-error)
+                 (return-from macro-form-p
+                   `(:error ,(format "Read error: ~A" condition))))))))
+      `(:ok ,(macro-form-type form nil compiler-macros?)))))
 
 (defun macro-form-type (form env compiler-macros?)
   (cond
