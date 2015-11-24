@@ -21,19 +21,6 @@
 
 (in-package #:swank-macrostep)
 
-(defun expand-form-once (form compiler-macros?)
-  (multiple-value-bind (expansion expanded?)
-      (macroexpand-1 form)
-    (if expanded?
-	(values expansion nil)
-	(if (not compiler-macros?)
-	    (values nil "Not a macro form")
-	    (multiple-value-bind (expansion expanded?)
-		(compiler-macroexpand-1 form)
-	      (if expanded?
-		  (values expansion nil)
-		  (values nil "Not a macro or compiler-macro form")))))))
-
 (defslimefun macrostep-expand-1 (string &optional compiler-macros?)
   (with-buffer-syntax ()
     (let ((form (read-from-string string)))
@@ -65,6 +52,19 @@
 					      line-number
 					      (length op-name))))
 		      nil))))))))
+
+(defun expand-form-once (form compiler-macros?)
+  (multiple-value-bind (expansion expanded?)
+      (macroexpand-1 form)
+    (if expanded?
+	(values expansion nil)
+	(if (not compiler-macros?)
+	    (values nil "Not a macro form")
+	    (multiple-value-bind (expansion expanded?)
+		(compiler-macroexpand-1 form)
+	      (if expanded?
+		  (values expansion nil)
+		  (values nil "Not a macro or compiler-macro form")))))))
 
 (defun pprint-to-string (object &optional pprint-dispatch)
   (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
@@ -111,7 +111,6 @@
      nil)))
 
 ;;;; Tracking Pretty Printer
-
 (defun marker-char-p (char)
   (<= #xe000 (char-code char) #xe8ff))
 
@@ -124,6 +123,20 @@
 (defun marker-char-id (char)
   (assert (marker-char-p char))
   (- (char-code char) #xe000))
+
+(defparameter +whitespace+ (mapcar #'code-char '(9 13 10 32)))
+
+(defun whitespacep (char)
+  (member char +whitespace+))
+
+(defun collect-form-positions (expansion printed-expansion forms)
+  (loop for (start end)
+          in (collect-marker-positions
+              (pprint-to-string expansion (make-tracking-pprint-dispatch forms))
+              (length forms))
+        collect (when (and start end)
+                  (list (find-non-whitespace-position printed-expansion start)
+                        (find-non-whitespace-position printed-expansion end)))))
 
 (defun make-tracking-pprint-dispatch (forms)
   (let ((original-table *print-pprint-dispatch*)
@@ -144,11 +157,6 @@
                            table))
     table))
 
-(defparameter +whitespace+ (mapcar #'code-char '(9 13 10 32)))
-
-(defun whitespacep (char)
-  (member char +whitespace+))
-
 (defun collect-marker-positions (string position-count)
   (let ((positions (make-array position-count :initial-element nil)))
     (loop with p = 0
@@ -166,14 +174,5 @@
           do (incf non-whitespace-position)
         until (eql non-whitespace-position position)
         finally (return i)))
-
-(defun collect-form-positions (expansion printed-expansion forms)
-  (loop for (start end)
-          in (collect-marker-positions
-              (pprint-to-string expansion (make-tracking-pprint-dispatch forms))
-              (length forms))
-        collect (when (and start end)
-                  (list (find-non-whitespace-position printed-expansion start)
-                        (find-non-whitespace-position printed-expansion end)))))
 
 (provide :swank-macrostep)
