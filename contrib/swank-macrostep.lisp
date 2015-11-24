@@ -76,7 +76,7 @@
              (error (condition)
                (unless (debug-on-swank-error)
                  (return-from macro-form-p
-                   `(:error ,(format "Read error: ~A" condition))))))))
+                   `(:error ,(format nil "Read error: ~A" condition))))))))
       `(:ok ,(macro-form-type form nil compiler-macros?)))))
 
 (defun macro-form-type (form env compiler-macros?)
