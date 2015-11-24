@@ -66,20 +66,19 @@
 (defun macrostep-slime-insert (result _ignore)
   "Insert RESULT at point, indenting to match the current column."
   (cl-destructuring-bind (expansion positions) result
-    (let* ((indent-string (concat "\n" (make-string (current-column) ? )))
-           (expansion (replace-regexp-in-string "\n" indent-string expansion))
-           (start (point))
-           (column-offset (current-column)))
+    (let ((start (point))
+          (column-offset (current-column)))
       (insert expansion)
-      (macrostep-slime--propertize-macros start column-offset positions))))
+      (macrostep-slime--propertize-macros start positions)
+      (indent-rigidly start (point) column-offset))))
 
-(defun macrostep-slime--propertize-macros (start-offset column-offset positions)
+(defun macrostep-slime--propertize-macros (start-offset positions)
   "Put text properties on macro forms."
   (dolist (position positions)
-    (cl-destructuring-bind (_ type start start-line op-length)
+    (cl-destructuring-bind (operator type start)
         position
       (let ((opening-parenthesis-position
-              (+ start-offset start (* column-offset start-line))))
+              (+ start-offset start)))
         (put-text-property opening-parenthesis-position
                            (1+ opening-parenthesis-position)
                            'macrostep-macro-start
@@ -88,7 +87,7 @@
         ;; opening parenthesis. We could probably be more robust.
         (let ((op-start (1+ opening-parenthesis-position)))
           (put-text-property op-start
-                             (+ op-start op-length)
+                             (+ op-start (length operator))
                              'font-lock-face
                              (if (eq type :macro)
                                  'macrostep-macro-face

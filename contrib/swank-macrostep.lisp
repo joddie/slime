@@ -44,14 +44,10 @@
                                        (op-type
                                         (if (member form macros)
                                             :macro
-                                            :compiler-macro))
-                                       (line-number
-                                        (position-line start pretty-expansion)))
+                                            :compiler-macro)))
                                    (list op-name
                                          op-type
-                                         start
-                                         line-number
-                                         (length op-name))))))
+                                         start)))))
 		`(:ok ,pretty-expansion ,macro-operators))))))))
 
 (defun expand-form-once (form compiler-macros?)
@@ -71,14 +67,6 @@
   (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
     (with-bindings *macroexpand-printer-bindings*
       (to-string object))))
-
-(defun position-line (position string)
-  (let ((line 0))
-    (loop for i upto position
-          for char across string
-          when (eql char #\Newline)
-            do (incf line))
-    line))
 
 (defslimefun macro-form-p
     (string &optional compiler-macros?)
