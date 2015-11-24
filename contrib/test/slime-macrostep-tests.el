@@ -1,3 +1,11 @@
+;; Tests for slime-macrostep.  The following are expected failures:
+;;
+;; - highlighting of (compiler-)macro sub-forms fails on CLISP: see
+;;   comment in SWANK-MACROSTEP::MAKE-TRACKING-PPRINT-DISPATCH.
+;;
+;; - SWANK::COLLECT-MACRO-FORMS currently fails to detect compiler
+;;   macros on CLISP, ABCL and CCL.
+
 (require 'slime-macrostep)
 (require 'slime-tests)
 (require 'cl-lib)
@@ -23,7 +31,7 @@
 
 
 
-(def-slime-test slime-macrostep-expand-defmacro
+(def-slime-test (slime-macrostep-expand-defmacro)
     (definition buffer-text original expansion)
   "Test that simple macrostep expansion works."
   '(("(defmacro macrostep-dummy-macro (&rest args)
@@ -47,7 +55,8 @@
                        (downcase (slime-sexp-at-point))
                        #'slime-test-macroexpansion=)))
 
-(def-slime-test slime-macrostep-fontify-macros
+(def-slime-test (slime-macrostep-fontify-macros
+                 (:fails-for "clisp"))
     (definition buffer-text original subform)
   "Test that macro forms in expansions are font-locked"
   '(("(defmacro macrostep-dummy-1 (&rest args)
@@ -74,7 +83,8 @@
         (eq (get-char-property (point) 'font-lock-face)
          'macrostep-macro-face))))
 
-(def-slime-test slime-macrostep-fontify-compiler-macros
+(def-slime-test (slime-macrostep-fontify-compiler-macros
+                 (:fails-for "armedbear" "clisp" "ccl"))
     (definition buffer-text original subform)
   "Test that compiler-macro forms in expansions are font-locked"
   '(("(defmacro macrostep-dummy-3 (&rest args)
