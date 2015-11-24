@@ -72,13 +72,11 @@
       (to-string object))))
 
 (defun position-line (position string)
-  (let ((line 0)
-        (last-newline-position 0))
+  (let ((line 0))
     (loop for i upto position
           for char across string
           when (eql char #\Newline)
-            do (incf line)
-               (setq last-newline-position i))
+            do (incf line))
     line))
 
 (defslimefun macro-form-p
