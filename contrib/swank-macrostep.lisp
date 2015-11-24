@@ -34,24 +34,25 @@
 		     (pretty-expansion (pprint-to-string expansion))
 		     (positions (collect-form-positions expansion
 							pretty-expansion
-							all-macros)))
-		`(:ok
-                  ,pretty-expansion
-                  ,(loop for form in all-macros
-                      for (start end) in positions
-                      when (and start end)
-                      collect (let ((op-name (to-string (first form)))
-                                    (op-type
-                                     (if (member form macros)
-                                         :macro
-                                       :compiler-macro))
-                                    (line-number
-                                     (position-line start pretty-expansion)))
-                                (list op-name
-                                      op-type
-                                      start
-                                      line-number
-                                      (length op-name))))))))))))
+							all-macros))
+                     (macro-operators
+                      (loop
+                         for form in all-macros
+                         for (start end) in positions
+                         when (and start end)
+                         collect (let ((op-name (to-string (first form)))
+                                       (op-type
+                                        (if (member form macros)
+                                            :macro
+                                            :compiler-macro))
+                                       (line-number
+                                        (position-line start pretty-expansion)))
+                                   (list op-name
+                                         op-type
+                                         start
+                                         line-number
+                                         (length op-name))))))
+		`(:ok ,pretty-expansion ,macro-operators))))))))
 
 (defun expand-form-once (form compiler-macros?)
   (multiple-value-bind (expansion expanded?)
