@@ -68,8 +68,7 @@
     (with-bindings *macroexpand-printer-bindings*
       (to-string object))))
 
-(defslimefun macro-form-p
-    (string &optional compiler-macros?)
+(defslimefun macro-form-p (string &optional compiler-macros?)
   (with-buffer-syntax ()
     (let ((form
            (handler-case
