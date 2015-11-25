@@ -48,16 +48,30 @@
 
 (defun macrostep-slime-mode-hook ()
   (setq macrostep-sexp-at-point-function #'slime-sexp-at-point)
-  (setq macrostep-environment-at-point-function (lambda () nil))
+  (setq macrostep-environment-at-point-function #'macrostep-slime-context)
   (setq macrostep-expand-1-function #'macrostep-slime-expand-1)
   (setq macrostep-print-function #'macrostep-slime-insert)
   (setq macrostep-macro-form-p-function #'macrostep-slime-macro-form-p))
 
-(defun macrostep-slime-expand-1 (string _ignore)
+(defun macrostep-slime-context ()
+  (let (defun-start defun-end)
+    (save-excursion
+      (while
+          (condition-case nil
+              (progn (backward-up-list) t)
+            (scan-error nil)))
+      (setq defun-start (point))
+      (setq defun-end (scan-sexps (point) 1)))
+    (list (buffer-substring-no-properties
+           defun-start (point))
+          (buffer-substring-no-properties
+           (scan-sexps (point) 1) defun-end))))
+
+(defun macrostep-slime-expand-1 (string context)
   (slime-dcase
       (slime-eval
        `(swank-macrostep:macrostep-expand-1
-         ,string ,macrostep-expand-compiler-macros))
+         ,string ,macrostep-expand-compiler-macros ',context))
     ((:error error-message)
      (error "%s" error-message))
     ((:ok expansion positions)
@@ -93,11 +107,11 @@
                                  'macrostep-macro-face
                                  'macrostep-compiler-macro-face)))))))
 
-(defun macrostep-slime-macro-form-p (string _ignore)
+(defun macrostep-slime-macro-form-p (string context)
   (slime-dcase
       (slime-eval
        `(swank-macrostep:macro-form-p
-         ,string ,macrostep-expand-compiler-macros))
+         ,string ,macrostep-expand-compiler-macros ',context))
     ((:error error-message)
      (error "%s" error-message))
     ((:ok result)

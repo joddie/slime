@@ -21,11 +21,11 @@
 
 (in-package #:swank-macrostep)
 
-(defslimefun macrostep-expand-1 (string &optional compiler-macros?)
+(defslimefun macrostep-expand-1 (string compiler-macros? context)
   (with-buffer-syntax ()
     (let ((form (read-from-string string)))
       (multiple-value-bind (expansion error-message)
-	  (expand-form-once form compiler-macros?)
+	  (expand-form-once form compiler-macros? context)
 	(if error-message
             `(:error ,error-message)
 	    (multiple-value-bind (macros compiler-macros)
@@ -50,9 +50,9 @@
                                          start)))))
 		`(:ok ,pretty-expansion ,subform-info))))))))
 
-(defun expand-form-once (form compiler-macros?)
+(defun expand-form-once (form compiler-macros? context)
   (multiple-value-bind (expansion expanded?)
-      (macroexpand-1 form)
+      (macroexpand-1-in-context form context)
     (if expanded?
 	(values expansion nil)
 	(if (not compiler-macros?)
@@ -63,12 +63,33 @@
 		  (values expansion nil)
 		  (values nil "Not a macro or compiler-macro form")))))))
 
+(defparameter *macroexpand-tag* (cons nil nil))
+
+(defmacro throw-expansion (form &environment env)
+  (throw *macroexpand-tag* (macroexpand-1 form env)))
+
+(defun macroexpand-1-in-context (form context)
+  (with-buffer-syntax ()
+    (destructuring-bind (prefix suffix) context
+      (let* ((wrapped-form
+              `(throw-expansion ,form))
+             (text
+              (concatenate 'string
+                           prefix
+                           (prin1-to-string wrapped-form)
+                           suffix))
+             (synthetic-form
+              (read-from-string text)))
+        (catch *macroexpand-tag*
+          (swank::macroexpand-all synthetic-form)
+          (values form nil))))))
+
 (defun pprint-to-string (object &optional pprint-dispatch)
   (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
     (with-bindings *macroexpand-printer-bindings*
       (to-string object))))
 
-(defslimefun macro-form-p (string &optional compiler-macros?)
+(defslimefun macro-form-p (string compiler-macros? context)
   (with-buffer-syntax ()
     (let ((form
            (handler-case
@@ -77,23 +98,24 @@
                (unless (debug-on-swank-error)
                  (return-from macro-form-p
                    `(:error ,(format nil "Read error: ~A" condition))))))))
-      `(:ok ,(macro-form-type form nil compiler-macros?)))))
+      `(:ok ,(macro-form-type form compiler-macros? context)))))
 
-(defun macro-form-type (form env compiler-macros?)
+(defun macro-form-type (form compiler-macros? context)
   (cond
     ((or (not (consp form))
          (not (symbolp (car form))))
      nil)
-    ((macro-function (car form) env)
+    ((multiple-value-bind (expansion expanded?)
+         (macroexpand-1-in-context form context)
+       (declare (ignore expansion))
+       expanded?)
      :macro)
     ((and compiler-macros?
-          (compiler-macro-function (car form) env))
-     (multiple-value-bind (expansion expanded?)
-         (compiler-macroexpand-1 form)
-       (declare (ignore expansion))
-       (if expanded?
-           :compiler-macro
-         nil)))
+          (multiple-value-bind (expansion expanded?)
+              (compiler-macroexpand-1 form)
+            (declare (ignore expansion))
+            expanded?))
+     :compiler-macro)
     (t
      nil)))
 
