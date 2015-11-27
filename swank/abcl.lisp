@@ -282,7 +282,7 @@
   (nth-value 2 (function-lambda-expression function)))
 
 (defimplementation macroexpand-all (form)
-  (macroexpand form))
+  (ext:macroexpand-all form))
 
 (defimplementation collect-macro-forms (form &optional env)
   ;; Currently detects only normal macros, not compiler macros.
