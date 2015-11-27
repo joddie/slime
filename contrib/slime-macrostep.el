@@ -47,11 +47,14 @@
      (define-key slime-repl-mode-map (kbd "C-c M-e") #'macrostep-expand))))
 
 (defun macrostep-slime-mode-hook ()
-  (setq macrostep-sexp-at-point-function #'slime-sexp-at-point)
+  (setq macrostep-sexp-at-point-function #'macrostep-slime-sexp-at-point)
   (setq macrostep-environment-at-point-function #'macrostep-slime-context)
   (setq macrostep-expand-1-function #'macrostep-slime-expand-1)
   (setq macrostep-print-function #'macrostep-slime-insert)
   (setq macrostep-macro-form-p-function #'macrostep-slime-macro-form-p))
+
+(defun macrostep-slime-sexp-at-point (&rest _ignore)
+  (slime-sexp-at-point))
 
 (defun macrostep-slime-context ()
   (let (defun-start defun-end)
