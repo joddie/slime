@@ -81,7 +81,7 @@
              (synthetic-form
               (read-from-string text)))
         (catch *macroexpand-tag*
-          (swank::macroexpand-all synthetic-form)
+          (macroexpand-all synthetic-form)
           (values form nil))))))
 
 (defun pprint-to-string (object &optional pprint-dispatch)
