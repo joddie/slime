@@ -114,4 +114,86 @@
         (eq (get-char-property (point) 'font-lock-face)
          'macrostep-compiler-macro-face))))
 
+(def-slime-test (slime-macrostep-expand-macrolet)
+    (definitions buffer-text expansions)
+    "Test that calls to macrolet-defined macros are expanded."
+    '((nil
+       "(macrolet
+            ((test (&rest args) `(expansion of ,@args)))
+          (first body form)
+          (second body form)
+          (test (strawberry pie) and (apple pie))
+          (final body form))"
+       (("(test (strawberry pie) and (apple pie))"
+         "(EXPANSION OF (STRAWBERRY PIE) AND (APPLE PIE))")))
+
+      ;; From swank.lisp:
+      (nil
+       "(macrolet ((define-xref-action (xref-type handler)
+                     `(defmethod xref-doit ((type (eql ,xref-type)) thing)
+                        (declare (ignorable type))
+                        (funcall ,handler thing))))
+          (define-xref-action :calls        #'who-calls)
+          (define-xref-action :calls-who    #'calls-who)
+          (define-xref-action :references   #'who-references)
+          (define-xref-action :binds        #'who-binds)
+          (define-xref-action :macroexpands #'who-macroexpands)
+          (define-xref-action :specializes  #'who-specializes)
+          (define-xref-action :callers      #'list-callers)
+          (define-xref-action :callees      #'list-callees))"
+       (("(define-xref-action :calls        #'who-calls)"
+         "(DEFMETHOD XREF-DOIT ((TYPE (EQL :CALLS)) THING)
+            (DECLARE (IGNORABLE TYPE))
+            (FUNCALL #'WHO-CALLS THING))")
+        ("(define-xref-action :macroexpands #'who-macroexpands)"
+         "(DEFMETHOD XREF-DOIT ((TYPE (EQL :MACROEXPANDS)) THING)
+            (DECLARE (IGNORABLE TYPE))
+            (FUNCALL #'WHO-MACROEXPANDS THING))")
+        ("(define-xref-action :callees      #'list-callees)"
+         "(DEFMETHOD XREF-DOIT ((TYPE (EQL :CALLEES)) THING)
+            (DECLARE (IGNORABLE TYPE))
+            (FUNCALL #'LIST-CALLEES THING))")))
+
+      ;; Test expansion of shadowed definitions
+      (nil
+       "(macrolet
+            ((test-macro (&rest forms) (cons 'outer-definition forms)))
+          (test-macro first (call))
+          (macrolet
+              ((test-macro (&rest forms) (cons 'inner-definition forms)))
+            (test-macro (second (call)))))"
+       (("(test-macro first (call))"
+         "(OUTER-DEFINITION FIRST (CALL))")
+        ("(test-macro (second (call)))"
+         "(INNER-DEFINITION (SECOND (CALL)))")))
+
+      ;; Expansion of macro-defined local macros
+      ("(defmacro with-local-dummy-macro (&rest body)
+          `(macrolet ((dummy (&rest args) `(expansion (of) ,@args)))
+             ,@body))"
+       "(with-local-dummy-macro
+           (dummy form (one))
+           (dummy (form two)))"
+       (("(dummy form (one))"
+         "(EXPANSION (OF) FORM (ONE))")
+        ("(dummy (form two))"
+         "(EXPANSION (OF) (FORM TWO))"))))
+
+  (when definitions
+    (slime-macrostep-eval-definitions definitions))
+  (slime-macrostep-with-text buffer-text
+    ;; slime-test-macroexpansion= does not expect tab characters,
+    ;; so make sure that Emacs does not insert them
+    (let ((indent-tabs-mode nil))
+      (cl-loop
+       for (original expansion) in expansions
+       do
+       (goto-char (point-min))
+       (slime-macrostep-search original)
+       (macrostep-expand)
+       (slime-test-expect "Macroexpansion is correct"
+                          expansion
+                          (slime-sexp-at-point)
+                          #'slime-test-macroexpansion=)))))
+
 (provide 'slime-macrostep-tests)
