@@ -29,7 +29,7 @@
 	(if error-message
             `(:error ,error-message)
 	    (multiple-value-bind (macros compiler-macros)
-		(collect-macro-forms expansion)
+		(collect-macro-forms-in-context expansion context)
 	      (let* ((all-macros (append macros compiler-macros))
 		     (pretty-expansion (pprint-to-string expansion))
 		     (positions (collect-form-positions expansion
@@ -68,21 +68,45 @@
 (defmacro throw-expansion (form &environment env)
   (throw *macroexpand-tag* (macroexpand-1 form env)))
 
+(defmacro throw-collected-macro-forms (form &environment env)
+  (throw *macroexpand-tag* (collect-macro-forms form env)))
+
 (defun macroexpand-1-in-context (form context)
+  (if (macroexpand-all-available?)
+      (macroexpand-and-catch
+       `(throw-expansion ,form) context)
+      (macroexpand-1 form)))
+
+(defun collect-macro-forms-in-context (form context)
+  (if (macroexpand-all-available?)
+      (macroexpand-and-catch
+       `(throw-collected-macro-forms ,form) context)
+      (collect-macro-forms form)))
+
+(defun macroexpand-all-available? ()
+  (not
+   (member 'macroexpand-all
+           swank/backend::*unimplemented-interfaces*)))
+
+(defparameter +placeholder+ '+macrostep-placeholder+)
+
+(defun macroexpand-and-catch (form context)
   (with-buffer-syntax ()
     (destructuring-bind (prefix suffix) context
-      (let* ((wrapped-form
-              `(throw-expansion ,form))
-             (text
-              (concatenate 'string
-                           prefix
-                           (prin1-to-string wrapped-form)
-                           suffix))
-             (synthetic-form
-              (read-from-string text)))
-        (catch *macroexpand-tag*
-          (macroexpand-all synthetic-form)
-          (values form nil))))))
+      (flet ((enclose (object)
+               (read-from-string
+                (concatenate
+                 'string
+                 prefix (prin1-to-string object) suffix))))
+        (let* ((placeholder-form (enclose +placeholder+))
+               (substituted-form (subst form +placeholder+ placeholder-form))
+               (enclosed-form
+                (if (not (equal placeholder-form substituted-form))
+                    substituted-form
+                    (enclose form))))
+          (catch *macroexpand-tag*
+            (macroexpand-all enclosed-form)
+            (error "expansion failed")))))))
 
 (defun pprint-to-string (object &optional pprint-dispatch)
   (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
@@ -162,7 +186,7 @@
                (write-char (make-marker-char position) stream))))
       (set-pprint-dispatch 'cons
                            (lambda (stream cons)
-                             (let ((pos (position cons forms)))
+                             (let ((pos (position cons forms :test #'equal)))
                                (maybe-write-marker pos stream)
                                ;; delegate printing to the original table.
                                (funcall (pprint-dispatch cons original-table)
