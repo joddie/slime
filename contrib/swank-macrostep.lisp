@@ -63,7 +63,15 @@
 		  (values expansion nil)
 		  (values nil "Not a macro or compiler-macro form")))))))
 
-(defparameter *macroexpand-tag* (cons nil nil))
+
+;;;; Hacks to support macro-expansion within local context
+
+(defparameter *macroexpand-tag* (gensym))
+
+(defparameter *macrostep-placeholder* '*macrostep-placeholder*)
+
+(define-condition expansion-in-context-failed (simple-error)
+  ())
 
 (defmacro throw-expansion (form &environment env)
   (throw *macroexpand-tag* (macroexpand-1 form env)))
@@ -72,25 +80,32 @@
   (throw *macroexpand-tag* (collect-macro-forms form env)))
 
 (defun macroexpand-1-in-context (form context)
-  (if (macroexpand-all-available?)
+  (handler-case
       (macroexpand-and-catch
        `(throw-expansion ,form) context)
-      (macroexpand-1 form)))
+    (expansion-in-context-failed ()
+      (macroexpand-1 form))))
 
 (defun collect-macro-forms-in-context (form context)
-  (if (macroexpand-all-available?)
+  (handler-case
       (macroexpand-and-catch
        `(throw-collected-macro-forms ,form) context)
-      (collect-macro-forms form)))
+    (expansion-in-context-failed ()
+      (collect-macro-forms form))))
+
+(defun macroexpand-and-catch (form context)
+  (if (not (macroexpand-all-available?))
+      (error 'expansion-in-context-failed)
+      (catch *macroexpand-tag*
+        (macroexpand-all (enclose-form-in-context form context))
+        (error 'expansion-in-context-failed))))
 
 (defun macroexpand-all-available? ()
   (not
    (member 'macroexpand-all
            swank/backend::*unimplemented-interfaces*)))
 
-(defparameter +placeholder+ '+macrostep-placeholder+)
-
-(defun macroexpand-and-catch (form context)
+(defun enclose-form-in-context (form context)
   (with-buffer-syntax ()
     (destructuring-bind (prefix suffix) context
       (flet ((enclose (object)
@@ -98,20 +113,19 @@
                 (concatenate
                  'string
                  prefix (prin1-to-string object) suffix))))
-        (let* ((placeholder-form (enclose +placeholder+))
-               (substituted-form (subst form +placeholder+ placeholder-form))
-               (enclosed-form
-                (if (not (equal placeholder-form substituted-form))
-                    substituted-form
-                    (enclose form))))
-          (catch *macroexpand-tag*
-            (macroexpand-all enclosed-form)
-            (error "expansion failed")))))))
+        (let* ((placeholder-form (enclose *macrostep-placeholder*))
+               (substituted-form (subst form *macrostep-placeholder*
+                                        placeholder-form)))
+          (if (not (equal placeholder-form substituted-form))
+              substituted-form
+              (enclose form)))))))
 
 (defun pprint-to-string (object &optional pprint-dispatch)
   (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
     (with-bindings *macroexpand-printer-bindings*
       (to-string object))))
+
+
 
 (defslimefun macro-form-p (string compiler-macros? context)
   (with-buffer-syntax ()
@@ -143,6 +157,7 @@
     (t
      nil)))
 
+
 ;;;; Tracking Pretty Printer
 (defun marker-char-p (char)
   (<= #xe000 (char-code char) #xe8ff))
