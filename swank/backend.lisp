@@ -55,7 +55,7 @@
            import-to-swank-mop
            import-swank-mop-symbols
 	   ;;
-
+           with-collected-macro-forms
            ))
 
 ;; FIXME: rename to sawnk/mop
@@ -814,27 +814,42 @@ NIL."
                    (values new-form expanded)))))
     (frob form env)))
 
+(defmacro with-collected-macro-forms ((var) instrumented-form &body body)
+  "Collect macro forms by locally binding *MACROEXPAND-HOOK*.
+
+Evaluates INSTRUMENTED-FORM, with *MACROEXPAND-HOOK* bound to a
+function which collects all forms that undergo macro-expansion into a
+list stored in VAR.  Then evaluates BODY, with VAR still bound to the
+list of forms."
+  (assert (symbolp var))
+  (assert (not (null var)))
+  (let ((real-macroexpand-hook (gensym))
+        (instrumented-macroexpand-hook (gensym)))
+    `(let* ((,real-macroexpand-hook *macroexpand-hook*)
+            (,var '())
+            (,instrumented-macroexpand-hook
+             (lambda (macro-function form environment)
+               (let ((result (funcall ,real-macroexpand-hook
+                                      macro-function form environment)))
+                 (unless (eq result form)
+                   (setq ,var (cons form ,var)))
+                 result))))
+       (let ((*macroexpand-hook* ,instrumented-macroexpand-hook))
+         ,instrumented-form)
+       ,@body)))
+
 (definterface collect-macro-forms (form &optional env)
   "Collect subforms of FORM which undergo (compiler-)macro expansion.
 Returns two values: a list of macro forms and a list of compiler macro
 forms."
   (declare (ignore env))
-  (let ((real-macroexpand-hook *macroexpand-hook*))
-    (macrolet ((make-form-collector (variable)
-                 `(lambda (macro-function form environment)
-                    (let ((result (funcall real-macroexpand-hook
-                                           macro-function form environment)))
-                      (unless (eq result form)
-                        (push form ,variable))
-                      result))))
-      (let* ((macro-forms '())
-             (compiler-macro-forms '())
-             (*macroexpand-hook* (make-form-collector macro-forms))
-             (expansion (ignore-errors (macroexpand-all form)))
-             (*macroexpand-hook* (make-form-collector compiler-macro-forms)))
-        (handler-bind ((warning #'muffle-warning))
-          (ignore-errors
-            (compile nil `(lambda () ,expansion))))
+  (let ((expansion nil))
+    (with-collected-macro-forms (macro-forms)
+        (setq expansion (ignore-errors (macroexpand-all form)))
+      (with-collected-macro-forms (compiler-macro-forms)
+          (handler-bind ((warning #'muffle-warning))
+            (ignore-errors
+              (compile nil `(lambda () ,expansion))))
         (values macro-forms compiler-macro-forms)))))
 
 (definterface format-string-expand (control-string)
