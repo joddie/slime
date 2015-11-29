@@ -84,7 +84,7 @@
          'macrostep-macro-face))))
 
 (def-slime-test (slime-macrostep-fontify-compiler-macros
-                 (:fails-for "armedbear" "clisp" "ccl"))
+                 (:fails-for "armedbear" "clisp" "ECL"))
     (definition buffer-text original subform)
   "Test that compiler-macro forms in expansions are font-locked"
   '(("(defmacro macrostep-dummy-3 (&rest args)
@@ -114,7 +114,8 @@
         (eq (get-char-property (point) 'font-lock-face)
          'macrostep-compiler-macro-face))))
 
-(def-slime-test (slime-macrostep-expand-macrolet)
+(def-slime-test (slime-macrostep-expand-macrolet
+                 (:fails-for "ECL"))
     (definitions buffer-text expansions)
     "Test that calls to macrolet-defined macros are expanded."
     '((nil
