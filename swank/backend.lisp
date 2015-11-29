@@ -842,10 +842,9 @@ list of forms."
   "Collect subforms of FORM which undergo (compiler-)macro expansion.
 Returns two values: a list of macro forms and a list of compiler macro
 forms."
-  (declare (ignore env))
   (let ((expansion nil))
     (with-collected-macro-forms (macro-forms)
-        (setq expansion (ignore-errors (macroexpand-all form)))
+        (setq expansion (ignore-errors (macroexpand-all form env)))
       (with-collected-macro-forms (compiler-macro-forms)
           (handler-bind ((warning #'muffle-warning))
             (ignore-errors
