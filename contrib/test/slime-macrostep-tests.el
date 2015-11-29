@@ -197,4 +197,51 @@
                           (slime-sexp-at-point)
                           #'slime-test-macroexpansion=)))))
 
+(def-slime-test (slime-macrostep-fontify-local-macros
+                 (:fails-for "clisp" "ECL"))
+    ()
+    "Test that locally-bound macros are highlighted in expansions."
+    '(())
+    (slime-macrostep-with-text
+        "(macrolet ((frob (&rest args)
+                      (if (zerop (length args))
+                          nil
+                          `(cons ,(car args) (frob ,@(cdr args))))))
+           (frob 1 2 3 4 5))"
+      (let ((expansions
+             '(("(frob 1 2 3 4 5)"
+                "(CONS 1 (FROB 2 3 4 5))"
+                "(FROB 2 3 4 5)")
+               ("(FROB 2 3 4 5)"
+                "(CONS 2 (FROB 3 4 5))"
+                "(FROB 3 4 5)")
+               ("(FROB 3 4 5)"
+                "(CONS 3 (FROB 4 5))"
+                "(FROB 4 5)")
+               ("(FROB 4 5)"
+                "(CONS 4 (FROB 5))"
+                "(FROB 5)")
+               ("(FROB 5)"
+                "(CONS 5 (FROB))"
+                "(FROB)")
+               ;; ("(FROB)"
+               ;;  "NIL"
+               ;;  nil)
+               )))
+        (cl-loop for (original expansion subform) in expansions
+                 do
+                 (goto-char (point-min))
+                 (slime-macrostep-search original)
+                 (macrostep-expand)
+                 (slime-test-expect "Macroexpansion is correct"
+                                    expansion
+                                    (slime-sexp-at-point)
+                                    #'slime-test-macroexpansion=)
+                 (when subform
+                   (slime-macrostep-search subform)
+                   (forward-char)
+                   (slime-check "Head of macro form in expansion is fontified correctly"
+                       (eq (get-char-property (point) 'font-lock-face)
+                        'macrostep-macro-face)))))))
+
 (provide 'slime-macrostep-tests)
