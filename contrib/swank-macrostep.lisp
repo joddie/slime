@@ -104,10 +104,21 @@
   ())
 
 (defmacro throw-expansion (form &environment env)
-  (throw *macrostep-tag* (macroexpand-1 form env)))
+  (throw *macrostep-tag*
+    (macroexpand-1 form (fixup-environment env))))
 
 (defmacro throw-collected-macro-forms (form &environment env)
-  (throw *macrostep-tag* (collect-macro-forms form env)))
+  (throw *macrostep-tag*
+    (collect-macro-forms form (fixup-environment env))))
+
+#-ecl
+(defun fixup-environment (env)
+  env)
+
+#+ecl
+(defun fixup-environment (env)
+  ;; Workaround ECL code-walker bug
+  (subst 'si::macro 'walker::macro env))
 
 (defun macroexpand-1-in-context (form context)
   (handler-case
