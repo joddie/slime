@@ -290,7 +290,7 @@
   (with-collected-macro-forms (macro-forms)
       (handler-bind ((warning #'muffle-warning))
         (ignore-errors
-          (compile nil `(lambda () ,(macroexpand-all form)))))
+          (compile nil `(lambda () ,(macroexpand-all form env)))))
     (values macro-forms nil)))
 
 (defimplementation describe-symbol-for-emacs (symbol)
