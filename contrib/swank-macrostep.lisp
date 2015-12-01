@@ -83,14 +83,14 @@
   (handler-case
       (macroexpand-and-catch
        `(throw-expansion ,form) context)
-    (expansion-in-context-failed ()
+    (error ()
       (macroexpand-1 form))))
 
 (defun collect-macro-forms-in-context (form context)
   (handler-case
       (macroexpand-and-catch
        `(throw-collected-macro-forms ,form) context)
-    (expansion-in-context-failed ()
+    (error ()
       (collect-macro-forms form))))
 
 (defun macroexpand-and-catch (form context)
@@ -118,7 +118,7 @@
                                         placeholder-form)))
           (if (not (equal placeholder-form substituted-form))
               substituted-form
-              (enclose form)))))))
+              (error 'expansion-in-context-failed)))))))
 
 (defun pprint-to-string (object &optional pprint-dispatch)
   (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
@@ -201,7 +201,7 @@
                (write-char (make-marker-char position) stream))))
       (set-pprint-dispatch 'cons
                            (lambda (stream cons)
-                             (let ((pos (position cons forms :test #'equal)))
+                             (let ((pos (position cons forms)))
                                (maybe-write-marker pos stream)
                                ;; delegate printing to the original table.
                                (funcall (pprint-dispatch cons original-table)
