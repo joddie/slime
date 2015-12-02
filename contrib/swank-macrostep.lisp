@@ -94,16 +94,9 @@
       (collect-macro-forms form))))
 
 (defun macroexpand-and-catch (form context)
-  (if (not (macroexpand-all-available?))
-      (error 'expansion-in-context-failed)
-      (catch *macroexpand-tag*
-        (macroexpand-all (enclose-form-in-context form context))
-        (error 'expansion-in-context-failed))))
-
-(defun macroexpand-all-available? ()
-  (not
-   (member 'macroexpand-all
-           swank/backend::*unimplemented-interfaces*)))
+  (catch *macroexpand-tag*
+    (macroexpand-all (enclose-form-in-context form context))
+    (error 'expansion-in-context-failed)))
 
 (defun enclose-form-in-context (form context)
   (with-buffer-syntax ()
