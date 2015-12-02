@@ -168,21 +168,24 @@
     (with-bindings *macroexpand-printer-bindings*
       (to-string object))))
 
+#-clisp
 (defun collect-form-positions (expansion printed-expansion forms)
-  ;; The pprint-dispatch table constructed by
-  ;; MAKE-TRACKING-PPRINT-DISPATCH causes an infinite loop and stack
-  ;; overflow under GNU CLISP (at least version 2.49).  Bail out in
-  ;; this case, so that basic macro-expansion can still work (without
-  ;; detection of inner macro forms)
-  (if (member :clisp *features*)
-      nil
-      (loop for (start end)
-         in (collect-marker-positions
-             (pprint-to-string expansion (make-tracking-pprint-dispatch forms))
-             (length forms))
-         collect (when (and start end)
-                   (list (find-non-whitespace-position printed-expansion start)
-                         (find-non-whitespace-position printed-expansion end))))))
+  (loop for (start end)
+     in (collect-marker-positions
+         (pprint-to-string expansion (make-tracking-pprint-dispatch forms))
+         (length forms))
+     collect (when (and start end)
+               (list (find-non-whitespace-position printed-expansion start)
+                     (find-non-whitespace-position printed-expansion end)))))
+
+;; The pprint-dispatch table constructed by
+;; MAKE-TRACKING-PPRINT-DISPATCH causes an infinite loop and stack
+;; overflow under CLISP version 2.49.  Make the COLLECT-FORM-POSITIONS
+;; entry point a no-op in thi case, so that basic macro-expansion will
+;; still work (without detection of inner macro forms)
+#+clisp
+(defun collect-form-positions (expansion printed-expansion forms)
+  nil)
 
 (defun make-tracking-pprint-dispatch (forms)
   (let ((original-table *print-pprint-dispatch*)
