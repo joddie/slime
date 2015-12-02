@@ -244,4 +244,23 @@
                        (eq (get-char-property (point) 'font-lock-face)
                         'macrostep-macro-face)))))))
 
+(def-slime-test (slime-macrostep-handle-unreadable-objects)
+    (definitions buffer-text subform expansion)
+    "Check that macroexpansion succeeds in a context containing unreadable objects."
+    '(("(defmacro macrostep-dummy-5 (&rest args)
+          `(expansion of ,@args))"
+       "(progn
+          #<unreadable object>
+          (macrostep-dummy-5 quux frob))"
+       "(macrostep-dummy-5 quux frob)"
+       "(EXPANSION OF QUUX FROB)"))
+    (slime-macrostep-eval-definitions definitions)
+    (slime-macrostep-with-text buffer-text
+      (slime-macrostep-search subform)
+      (macrostep-expand)
+      (slime-test-expect "Macroexpansion is correct"
+                         expansion
+                         (slime-sexp-at-point)
+                         #'slime-test-macroexpansion=)))
+
 (provide 'slime-macrostep-tests)
