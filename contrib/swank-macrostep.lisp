@@ -101,17 +101,16 @@
 (defun enclose-form-in-context (form context)
   (with-buffer-syntax ()
     (destructuring-bind (prefix suffix) context
-      (flet ((enclose (object)
-               (read-from-string
-                (concatenate
-                 'string
-                 prefix (prin1-to-string object) suffix))))
-        (let* ((placeholder-form (enclose *macrostep-placeholder*))
-               (substituted-form (subst form *macrostep-placeholder*
-                                        placeholder-form)))
-          (if (not (equal placeholder-form substituted-form))
-              substituted-form
-              (error 'expansion-in-context-failed)))))))
+      (let* ((placeholder-form
+              (read-from-string
+               (concatenate
+                'string
+                prefix (prin1-to-string *macrostep-placeholder*) suffix)))
+             (substituted-form (subst form *macrostep-placeholder*
+                                      placeholder-form)))
+        (if (not (equal placeholder-form substituted-form))
+            substituted-form
+            (error 'expansion-in-context-failed))))))
 
 (defun pprint-to-string (object &optional pprint-dispatch)
   (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
