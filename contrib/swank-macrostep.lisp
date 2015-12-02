@@ -63,6 +63,36 @@
 		  (values expansion nil)
 		  (values nil "Not a macro or compiler-macro form")))))))
 
+(defslimefun macro-form-p (string compiler-macros? context)
+  (with-buffer-syntax ()
+    (let ((form
+           (handler-case
+               (read-from-string string)
+             (error (condition)
+               (unless (debug-on-swank-error)
+                 (return-from macro-form-p
+                   `(:error ,(format nil "Read error: ~A" condition))))))))
+      `(:ok ,(macro-form-type form compiler-macros? context)))))
+
+(defun macro-form-type (form compiler-macros? context)
+  (cond
+    ((or (not (consp form))
+         (not (symbolp (car form))))
+     nil)
+    ((multiple-value-bind (expansion expanded?)
+         (macroexpand-1-in-context form context)
+       (declare (ignore expansion))
+       expanded?)
+     :macro)
+    ((and compiler-macros?
+          (multiple-value-bind (expansion expanded?)
+              (compiler-macroexpand-1 form)
+            (declare (ignore expansion))
+            expanded?))
+     :compiler-macro)
+    (t
+     nil)))
+
 
 ;;;; Hacks to support macro-expansion within local context
 
@@ -112,45 +142,9 @@
             substituted-form
             (error 'expansion-in-context-failed))))))
 
-(defun pprint-to-string (object &optional pprint-dispatch)
-  (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
-    (with-bindings *macroexpand-printer-bindings*
-      (to-string object))))
-
-
-
-(defslimefun macro-form-p (string compiler-macros? context)
-  (with-buffer-syntax ()
-    (let ((form
-           (handler-case
-               (read-from-string string)
-             (error (condition)
-               (unless (debug-on-swank-error)
-                 (return-from macro-form-p
-                   `(:error ,(format nil "Read error: ~A" condition))))))))
-      `(:ok ,(macro-form-type form compiler-macros? context)))))
-
-(defun macro-form-type (form compiler-macros? context)
-  (cond
-    ((or (not (consp form))
-         (not (symbolp (car form))))
-     nil)
-    ((multiple-value-bind (expansion expanded?)
-         (macroexpand-1-in-context form context)
-       (declare (ignore expansion))
-       expanded?)
-     :macro)
-    ((and compiler-macros?
-          (multiple-value-bind (expansion expanded?)
-              (compiler-macroexpand-1 form)
-            (declare (ignore expansion))
-            expanded?))
-     :compiler-macro)
-    (t
-     nil)))
-
 
 ;;;; Tracking Pretty Printer
+
 (defun marker-char-p (char)
   (<= #xe000 (char-code char) #xe8ff))
 
@@ -168,6 +162,11 @@
 
 (defun whitespacep (char)
   (member char +whitespace+))
+
+(defun pprint-to-string (object &optional pprint-dispatch)
+  (let ((*print-pprint-dispatch* (or pprint-dispatch *print-pprint-dispatch*)))
+    (with-bindings *macroexpand-printer-bindings*
+      (to-string object))))
 
 (defun collect-form-positions (expansion printed-expansion forms)
   ;; The pprint-dispatch table constructed by
