@@ -96,7 +96,7 @@
 
 ;;;; Hacks to support macro-expansion within local context
 
-(defparameter *macroexpand-tag* (gensym))
+(defparameter *macrostep-tag* (gensym))
 
 (defparameter *macrostep-placeholder* '*macrostep-placeholder*)
 
@@ -104,10 +104,10 @@
   ())
 
 (defmacro throw-expansion (form &environment env)
-  (throw *macroexpand-tag* (macroexpand-1 form env)))
+  (throw *macrostep-tag* (macroexpand-1 form env)))
 
 (defmacro throw-collected-macro-forms (form &environment env)
-  (throw *macroexpand-tag* (collect-macro-forms form env)))
+  (throw *macrostep-tag* (collect-macro-forms form env)))
 
 (defun macroexpand-1-in-context (form context)
   (handler-case
@@ -124,7 +124,7 @@
       (collect-macro-forms form))))
 
 (defun macroexpand-and-catch (form context)
-  (catch *macroexpand-tag*
+  (catch *macrostep-tag*
     (macroexpand-all (enclose-form-in-context form context))
     (error 'expansion-in-context-failed)))
 
