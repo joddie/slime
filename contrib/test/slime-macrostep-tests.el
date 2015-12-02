@@ -1,10 +1,30 @@
 ;; Tests for slime-macrostep.  The following are expected failures:
-;;
-;; - highlighting of (compiler-)macro sub-forms fails on CLISP: see
-;;   comment in SWANK-MACROSTEP::MAKE-TRACKING-PPRINT-DISPATCH.
-;;
-;; - SWANK::COLLECT-MACRO-FORMS currently fails to detect compiler
-;;   macros on CLISP, ABCL and CCL.
+
+;; - Under CLISP, highlighting of macro sub-forms fails because our
+;;   pretty-printer dispatch table hacking causes infinite recursion:
+;;   see comment in swank-macrostep.lisp
+
+;; - COLLECT-MACRO-FORMS does not catch compiler macros under CLISP
+;;   and ABCL
+
+;; - Under CCL and ECL, compiler macro calls returned by
+;;   COLLECT-MACRO-FORMS are not EQ to the original form, and so are
+;;   not detected by the tracking pretty-printer mechanism.  This
+;;   could be fixed by adding :TEST #'EQUAL to the POSITION call
+;;   within MAKE-TRACKING-PPRINT-DISPATCH, at the cost of introducing
+;;   false positives.
+
+;; ECL has two other issues:
+
+;;   - it currently lacks a working SLIME defimplementation for
+;;     MACROEXPAND-ALL (Github issue #157), without which none of the
+;;     expand-in-context stuff works.
+
+;;   - the environments consed up by its WALKER:MACROEXPAND-ALL
+;;     function are slightly broken, and do not work when passed to
+;;     MACROEXPAND-1 unless fixed up via
+
+;;         (subst 'si::macro 'walker::macro env)
 
 (require 'slime-macrostep)
 (require 'slime-tests)
@@ -56,7 +76,7 @@
                        #'slime-test-macroexpansion=)))
 
 (def-slime-test (slime-macrostep-fontify-macros
-                 (:fails-for "clisp"))
+                 (:fails-for "clisp" "ECL"))
     (definition buffer-text original subform)
   "Test that macro forms in expansions are font-locked"
   '(("(defmacro macrostep-dummy-1 (&rest args)
@@ -84,7 +104,7 @@
          'macrostep-macro-face))))
 
 (def-slime-test (slime-macrostep-fontify-compiler-macros
-                 (:fails-for "armedbear" "clisp" "ECL"))
+                 (:fails-for "armedbear" "clisp" "ccl" "ECL"))
     (definition buffer-text original subform)
   "Test that compiler-macro forms in expansions are font-locked"
   '(("(defmacro macrostep-dummy-3 (&rest args)
