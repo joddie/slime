@@ -40,9 +40,9 @@
   (:license "GPL")
   (:swank-dependencies swank-macrostep)
   (:on-load
-   (pushnew ["Macro stepper..." macrostep-expand (slime-connected-p)]
-            (cdr (assoc "Debugging" slime-easy-menu))
-            :test #'equal)
+   (easy-menu-add-item slime-mode-map '(menu-bar SLIME Debugging)
+                       ["Macro stepper..." macrostep-expand (slime-connected-p)]
+                       "Create Trace Buffer")
    (add-hook 'slime-mode-hook #'macrostep-slime-mode-hook)
    (define-key slime-mode-map (kbd "C-c M-e") #'macrostep-expand)
    (with-eval-after-load 'slime-repl
